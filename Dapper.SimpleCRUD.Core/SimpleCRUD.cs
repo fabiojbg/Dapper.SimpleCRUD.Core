@@ -498,29 +498,6 @@ namespace Dapper
         }
 
         /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="entityToUpdate"></param>
-        /// <param name="sb"></param>
-        private static void BuildUpdateNotNullSet(object entityToUpdate, StringBuilder sb)
-        {
-            var nonIdProps = SimpleCRUD.GetUpdateableProperties(entityToUpdate).ToArray();
-
-            for (var i = 0; i < nonIdProps.Length; i++)
-            {
-                var property = nonIdProps[i];
-
-                var propValue = property.GetValue(entityToUpdate);
-                if (propValue != null)
-                {
-                    sb.AppendFormat("{0} = @{1}", GetColumnName(property), property.Name);
-                    sb.AppendFormat(", ");
-                }
-            }
-            sb.Remove(sb.Length - 2, 2);
-        }
-
-        /// <summary>
         /// <para>Updates a record or records in the database with only the properties of TEntity</para>
         /// <para>By default updates records in the table matching the class name</para>
         /// <para>-Table name can be overridden by adding an attribute on your class [Table("YourTableName")]</para>
@@ -536,7 +513,31 @@ namespace Dapper
         /// <returns>The number of effected records</returns>
         public static int Update<TEntity>(this IDbConnection connection, TEntity entityToUpdate, IDbTransaction transaction = null, int? commandTimeout = null)
         {
-            var idProps = GetIdProperties(entityToUpdate).ToList();
+            return Update(connection, entityToUpdate, false, transaction, commandTimeout);
+        }
+
+        public static int UpdateNonNullProps<TEntity>(this IDbConnection connection, TEntity entityToUpdate, IDbTransaction transaction = null, int? commandTimeout = null)
+        {
+            return Update(connection, entityToUpdate, true, transaction, commandTimeout);
+        }
+
+        /// <summary>
+        /// <para>Updates a record or records in the database which only the non null fields are updated</para>
+        /// <para>By default updates records in the table matching the class name</para>
+        /// <para>-Table name can be overridden by adding an attribute on your class [Table("YourTableName")]</para>
+        /// <para>Updates records where the Id property and properties with the [Key] attribute match those in the database.</para>
+        /// <para>Properties marked with attribute [Editable(false)] and complex types are ignored</para>
+        /// <para>Supports transaction and command timeout</para>
+        /// <para>Returns number of rows effected</para>
+        /// </summary>
+        /// <param name="connection"></param>
+        /// <param name="entityToUpdate"></param>
+        /// <param name="transaction"></param>
+        /// <param name="commandTimeout"></param>
+        /// <returns>The number of effected records</returns>
+        private static int Update<TEntity>(this IDbConnection connection, TEntity entityToUpdate, bool onlyNonNullProperties, IDbTransaction transaction = null, int? commandTimeout = null)
+        {
+            var idProps = GetIdProperties(entityToUpdate).AsList();
 
             if (!idProps.Any())
                 throw new ArgumentException("Entity must have at least one [Key] or Id property");
@@ -547,7 +548,8 @@ namespace Dapper
             sb.AppendFormat("update {0}", name);
 
             sb.AppendFormat(" set ");
-            BuildUpdateSet(entityToUpdate, sb);
+            if (!BuildUpdateSet(entityToUpdate, sb, onlyNonNullProperties))
+                return 0;
             sb.Append(" where ");
             BuildWhere(sb, idProps, entityToUpdate);
 
@@ -715,43 +717,6 @@ namespace Dapper
         }
 
         /// <summary>
-        /// <para>Updates a record or records in the database which only the non null fields are updated</para>
-        /// <para>By default updates records in the table matching the class name</para>
-        /// <para>-Table name can be overridden by adding an attribute on your class [Table("YourTableName")]</para>
-        /// <para>Updates records where the Id property and properties with the [Key] attribute match those in the database.</para>
-        /// <para>Properties marked with attribute [Editable(false)] and complex types are ignored</para>
-        /// <para>Supports transaction and command timeout</para>
-        /// <para>Returns number of rows effected</para>
-        /// </summary>
-        /// <param name="connection"></param>
-        /// <param name="entityToUpdate"></param>
-        /// <param name="transaction"></param>
-        /// <param name="commandTimeout"></param>
-        /// <returns>The number of effected records</returns>
-        public static int UpdateNonNullProps(this IDbConnection connection, object entityToUpdate, IDbTransaction transaction = null, int? commandTimeout = null)
-        {
-            var idProps = GetIdProperties(entityToUpdate).AsList();
-
-            if (!idProps.Any())
-                throw new ArgumentException("Entity must have at least one [Key] or Id property");
-
-            var name = GetTableName(entityToUpdate);
-
-            var sb = new StringBuilder();
-            sb.AppendFormat("update {0}", name);
-
-            sb.AppendFormat(" set ");
-            BuildUpdateNotNullSet(entityToUpdate, sb);
-            sb.Append(" where ");
-            BuildWhere(sb, idProps, entityToUpdate);
-
-            if (Debugger.IsAttached)
-                Debug.WriteLine(String.Format("Update: {0}", sb));
-
-            return connection.Execute(sb.ToString(), entityToUpdate, transaction, commandTimeout);
-        }
-
-        /// <summary>
         /// Deletes a list of records the satisfies some property value
         /// </summary>
         /// <typeparam name="T"></typeparam>
@@ -907,18 +872,24 @@ namespace Dapper
         }
 
         //build update statement based on list on an entity
-        private static void BuildUpdateSet<T>(T entityToUpdate, StringBuilder sb)
+        private static bool BuildUpdateSet<T>(T entityToUpdate, StringBuilder sb, bool onlyNonNullProperties = false)
         {
             var nonIdProps = GetUpdateableProperties(entityToUpdate).ToArray();
-
+            bool insertedProps = false;
             for (var i = 0; i < nonIdProps.Length; i++)
             {
                 var property = nonIdProps[i];
-
-                sb.AppendFormat("{0} = @{1}", GetColumnName(property), property.Name);
-                if (i < nonIdProps.Length - 1)
+                if (!onlyNonNullProperties || property.GetValue(entityToUpdate) != null)
+                {
+                    sb.AppendFormat("{0} = @{1}", GetColumnName(property), property.Name);
+                    insertedProps = true;
                     sb.AppendFormat(", ");
+                }
             }
+            if( insertedProps )
+                sb.Remove(sb.Length - 2, 2);
+
+            return insertedProps;
         }
 
         //build select clause based on list of properties skipping ones with the IgnoreSelect and NotMapped attribute
@@ -1046,9 +1017,9 @@ namespace Dapper
         }
 
         //Get all properties that are not decorated with the Editable(false) attribute
-        private static IEnumerable<PropertyInfo> GetScaffoldableProperties<T>(string[] propertiesToIgnore = null)
+        private static IEnumerable<PropertyInfo> GetScaffoldableProperties(Type type, string[] propertiesToIgnore = null)
         {
-            IEnumerable<PropertyInfo> props = typeof(T).GetProperties();
+            IEnumerable<PropertyInfo> props = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
             props = props.Where(p => p.GetCustomAttributes(true).Any(attr => attr.GetType().Name == typeof(EditableAttribute).Name && !IsEditable(p)) == false);
 
@@ -1058,6 +1029,11 @@ namespace Dapper
             return props.Where(p => p.PropertyType.IsSimpleType() || IsEditable(p));
         }
 
+        //Get all properties that are not decorated with the Editable(false) attribute
+        private static IEnumerable<PropertyInfo> GetScaffoldableProperties<T>(string[] propertiesToIgnore = null)
+        {
+            return GetScaffoldableProperties(typeof(T), propertiesToIgnore);
+        }
 
         //Determine if the Attribute has an AllowEdit key and return its boolean state
         //fake the funk and try to mimick EditableAttribute in System.ComponentModel.DataAnnotations 

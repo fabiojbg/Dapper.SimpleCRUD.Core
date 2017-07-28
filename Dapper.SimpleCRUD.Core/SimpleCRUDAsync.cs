@@ -417,6 +417,30 @@ namespace Dapper
             return (TKey)r.First().id;
         }
 
+        private static Task<int> UpdateAsync<TEntity>(this IDbConnection connection, TEntity entityToUpdate, bool onlyNonNullProps, IDbTransaction transaction = null, int? commandTimeout = null, System.Threading.CancellationToken? token = null)
+        {
+            var idProps = GetIdProperties(entityToUpdate).ToList();
+
+            if (!idProps.Any())
+                throw new ArgumentException("Entity must have at least one [Key] or Id property");
+
+            var name = GetTableName(entityToUpdate);
+
+            var sb = new StringBuilder();
+            sb.AppendFormat("update {0}", name);
+
+            sb.AppendFormat(" set ");
+            BuildUpdateSet(entityToUpdate, sb, onlyNonNullProps);
+            sb.Append(" where ");
+            BuildWhere(sb, idProps, entityToUpdate);
+
+            if (Debugger.IsAttached)
+                Debug.WriteLine(String.Format("Update: {0}", sb));
+
+            System.Threading.CancellationToken cancelToken = token ?? default(System.Threading.CancellationToken);
+            return connection.ExecuteAsync(new CommandDefinition(sb.ToString(), entityToUpdate, transaction, commandTimeout, cancellationToken: cancelToken));
+        }
+
         /// <summary>
         ///  <para>Updates a record or records in the database asynchronously</para>
         ///  <para>By default updates records in the table matching the class name</para>
@@ -433,26 +457,27 @@ namespace Dapper
         /// <returns>The number of effected records</returns>
         public static Task<int> UpdateAsync<TEntity>(this IDbConnection connection, TEntity entityToUpdate, IDbTransaction transaction = null, int? commandTimeout = null, System.Threading.CancellationToken? token = null)
         {
-            var idProps = GetIdProperties(entityToUpdate).ToList();
+            return UpdateAsync(connection, entityToUpdate, false, transaction, commandTimeout, token);
+        }
 
-            if (!idProps.Any())
-                throw new ArgumentException("Entity must have at least one [Key] or Id property");
-
-            var name = GetTableName(entityToUpdate);
-
-            var sb = new StringBuilder();
-            sb.AppendFormat("update {0}", name);
-
-            sb.AppendFormat(" set ");
-            BuildUpdateSet(entityToUpdate, sb);
-            sb.Append(" where ");
-            BuildWhere(sb, idProps, entityToUpdate);
-
-            if (Debugger.IsAttached)
-                Debug.WriteLine(String.Format("Update: {0}", sb));
-
-            System.Threading.CancellationToken cancelToken = token ?? default(System.Threading.CancellationToken);
-            return connection.ExecuteAsync(new CommandDefinition(sb.ToString(), entityToUpdate, transaction, commandTimeout, cancellationToken: cancelToken));
+        /// <summary>
+        ///  <para>Updates a record or records in the database asynchronously</para>
+        ///  <para>Updates only properties with non null values</para>
+        ///  <para>By default updates records in the table matching the class name</para>
+        ///  <para>-Table name can be overridden by adding an attribute on your class [Table("YourTableName")]</para>
+        ///  <para>Updates records where the Id property and properties with the [Key] attribute match those in the database.</para>
+        ///  <para>Properties marked with attribute [Editable(false)] and complex types are ignored</para>
+        ///  <para>Supports transaction and command timeout</para>
+        ///  <para>Returns number of rows effected</para>
+        ///  </summary>
+        ///  <param name="connection"></param>
+        ///  <param name="entityToUpdate"></param>
+        /// <param name="transaction"></param>
+        /// <param name="commandTimeout"></param>
+        /// <returns>The number of effected records</returns>
+        public static Task<int> UpdateNonNullPropsAsync<TEntity>(this IDbConnection connection, TEntity entityToUpdate, IDbTransaction transaction = null, int? commandTimeout = null, System.Threading.CancellationToken? token = null)
+        {
+            return UpdateAsync(connection, entityToUpdate, true, transaction, commandTimeout, token);
         }
 
         /// <summary>
@@ -671,44 +696,6 @@ namespace Dapper
                 Debug.WriteLine(String.Format("RecordCount<{0}>: {1}", currenttype, sb));
 
             return connection.ExecuteScalarAsync<int>(sb.ToString(), whereConditions, transaction, commandTimeout);
-        }
-
-        /// <summary>
-        ///  <para>Updates a record or records in the database asynchronously. Only the non-null fields are updated.</para>
-        ///  <para>By default updates records in the table matching the class name</para>
-        ///  <para>-Table name can be overridden by adding an attribute on your class [Table("YourTableName")]</para>
-        ///  <para>Updates records where the Id property and properties with the [Key] attribute match those in the database.</para>
-        ///  <para>Properties marked with attribute [Editable(false)] and complex types are ignored</para>
-        ///  <para>Supports transaction and command timeout</para>
-        ///  <para>Returns number of rows effected</para>
-        ///  </summary>
-        ///  <param name="connection"></param>
-        ///  <param name="entityToUpdate"></param>
-        /// <param name="transaction"></param>
-        /// <param name="commandTimeout"></param>
-        /// <returns>The number of effected records</returns>
-        public static Task<int> UpdateNonNullPropsAsync(this IDbConnection connection, object entityToUpdate, IDbTransaction transaction = null, int? commandTimeout = null, System.Threading.CancellationToken? token = null)
-        {
-            var idProps = GetIdProperties(entityToUpdate).AsList();
-
-            if (!idProps.Any())
-                throw new ArgumentException("Entity must have at least one [Key] or Id property");
-
-            var name = GetTableName(entityToUpdate);
-
-            var sb = new StringBuilder();
-            sb.AppendFormat("update {0}", name);
-
-            sb.AppendFormat(" set ");
-            BuildUpdateNotNullSet(entityToUpdate, sb);
-            sb.Append(" where ");
-            BuildWhere(sb, idProps, entityToUpdate);
-
-            if (Debugger.IsAttached)
-                Debug.WriteLine(String.Format("Update: {0}", sb));
-
-            System.Threading.CancellationToken cancelToken = token ?? default(System.Threading.CancellationToken);
-            return connection.ExecuteAsync(new CommandDefinition(sb.ToString(), entityToUpdate, transaction, commandTimeout, cancellationToken: cancelToken));
         }
 
         /// <summary>

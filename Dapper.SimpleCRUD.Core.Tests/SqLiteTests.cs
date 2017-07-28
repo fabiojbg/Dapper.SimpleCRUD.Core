@@ -9,6 +9,7 @@ using SimpleCRUD.Core.Tests.Models;
 
 namespace SimpleCRUD.Core.Tests
 {
+    /*
     [TestClass]
     [Ignore]
     public class SqLiteTests : SimpleCRUDCoreBaseTests
@@ -52,4 +53,5 @@ namespace SimpleCRUD.Core.Tests
             File.Delete(Directory.GetCurrentDirectory() + "\\MyDatabase.sqlite");
         }
     }
+    */
 }

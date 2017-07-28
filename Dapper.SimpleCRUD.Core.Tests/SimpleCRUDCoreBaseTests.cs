@@ -956,6 +956,141 @@ namespace SimpleCRUD.Core.Tests
             Assert.AreEqual(1, list.Count());
         }
 
+        [TestMethod]
+        public void TestUpdateNonNullProps()
+        {
+            var userId = _connection.Insert(new User { Name = "TestUpdateNonNullProps", Age = 40, ScheduledDayOff= DayOfWeek.Friday });
+
+            //test with null property
+            _connection.UpdateNonNullProps(new User{ Id=userId.Value, Age=41 }); // change only the age of the user
+
+            var user = _connection.Get<User>(userId.Value);
+
+            _connection.Execute("Delete from Users");
+
+            Assert.AreEqual("TestUpdateNonNullProps", user.Name);       // remain unchanged
+            Assert.AreEqual( DayOfWeek.Friday, user.ScheduledDayOff);   // remain unchanged
+            Assert.AreEqual(41, user.Age); // updated value
+        }
+
+        [TestMethod]
+        public void TestUpdateNonNullPropsAsync()
+        {
+            var userId = _connection.Insert(new User { Name = "TestUpdateNonNullPropsAsync", Age = 40, ScheduledDayOff = DayOfWeek.Friday });
+
+            //test with null property
+            _connection.UpdateNonNullPropsAsync(new User { Id = userId.Value, Age = 41 }).Wait(); // change only the age of the user
+
+            var user = _connection.Get<User>(userId.Value);
+
+            _connection.Execute("Delete from Users");
+
+            Assert.AreEqual("TestUpdateNonNullPropsAsync", user.Name);       // remain unchanged
+            Assert.AreEqual(DayOfWeek.Friday, user.ScheduledDayOff);   // remain unchanged
+            Assert.AreEqual(41, user.Age); // updated value
+        }
+
+        [TestMethod]
+        public void TestPropertiesToBeIgnored()
+        {
+            var userId = _connection.Insert(new User { Name = "TestPropertiesToBeIgnored", Age = 40, CreatedDate=new DateTime(2017,7,28), ScheduledDayOff = DayOfWeek.Friday });
+
+            var user = _connection.Get<User>(userId.Value, new string[] { nameof(User.Name), nameof(User.ScheduledDayOff) });
+
+            _connection.Execute("Delete from Users");
+
+            Assert.IsNull(user.Name);
+            Assert.IsNull(user.ScheduledDayOff);
+        }
+
+        [TestMethod]
+        public void TestPropertiesToBeIgnoredAsync()
+        {
+            var userId = _connection.Insert(new User { Name = "v", Age = 40, CreatedDate = new DateTime(2017, 7, 28), ScheduledDayOff = DayOfWeek.Friday });
+
+            var user = _connection.GetAsync<User>(userId.Value, new string[] { nameof(User.Name), nameof(User.ScheduledDayOff) }).Result;
+
+            _connection.Execute("Delete from Users");
+
+            Assert.IsNull(user.Name);
+            Assert.IsNull(user.ScheduledDayOff);
+        }
+
+        [TestMethod]
+        public void TestPropertiesToBeIgnoredInGetList()
+        {
+            var userId1 = _connection.Insert(new User { Name = "TestPropertiesToBeIgnoredInGetList1", Age = 40, CreatedDate = new DateTime(2017, 7, 28), ScheduledDayOff = DayOfWeek.Friday });
+            var userId2 = _connection.Insert(new User { Name = "TestPropertiesToBeIgnoredInGetList2", Age = 41, CreatedDate = new DateTime(2017, 7, 28), ScheduledDayOff = DayOfWeek.Friday });
+
+            var users = _connection.GetList<User>(new string[] { nameof(User.Name), nameof(User.ScheduledDayOff) }).ToArray();
+
+            _connection.Execute("Delete from Users");
+
+            Assert.AreEqual(2, users.Count());
+            Assert.IsNull(users[0].Name);
+            Assert.IsNull(users[0].ScheduledDayOff);
+            Assert.IsNull(users[1].Name);
+            Assert.IsNull(users[1].ScheduledDayOff);
+        }
+
+        [TestMethod]
+        public void TestPropertiesToBeIgnoredInGetListAsync()
+        {
+            var userId1 = _connection.Insert(new User { Name = "TestPropertiesToBeIgnoredInGetListAsync1", Age = 40, CreatedDate = new DateTime(2017, 7, 28), ScheduledDayOff = DayOfWeek.Friday });
+            var userId2 = _connection.Insert(new User { Name = "TestPropertiesToBeIgnoredInGetListAsync2", Age = 41, CreatedDate = new DateTime(2017, 7, 28), ScheduledDayOff = DayOfWeek.Friday });
+
+            var users = _connection.GetListAsync<User>(new string[] { nameof(User.Name), nameof(User.ScheduledDayOff) }).Result.ToArray();
+
+            _connection.Execute("Delete from Users");
+
+            Assert.AreEqual(2, users.Count());
+            Assert.IsNull(users[0].Name);
+            Assert.IsNull(users[0].ScheduledDayOff);
+            Assert.IsNull(users[1].Name);
+            Assert.IsNull(users[1].ScheduledDayOff);
+        }
+
+        [TestMethod]
+        public void TestPropertiesToBeIgnoredInGetListPaged()
+        {
+            var userId1 = _connection.Insert(new User { Name = "TestPropertiesToBeIgnoredInGetListPaged1", Age = 40, CreatedDate = new DateTime(2017, 7, 28), ScheduledDayOff = DayOfWeek.Friday });
+            var userId2 = _connection.Insert(new User { Name = "TestPropertiesToBeIgnoredInGetListPaged2", Age = 41, CreatedDate = new DateTime(2017, 7, 28), ScheduledDayOff = DayOfWeek.Friday });
+            var userId3 = _connection.Insert(new User { Name = "TestPropertiesToBeIgnoredInGetListPaged3", Age = 42, CreatedDate = new DateTime(2017, 7, 28), ScheduledDayOff = DayOfWeek.Friday });
+            var userId4 = _connection.Insert(new User { Name = "TestPropertiesToBeIgnoredInGetListPaged4", Age = 43, CreatedDate = new DateTime(2017, 7, 28), ScheduledDayOff = DayOfWeek.Friday });
+
+            var users = _connection.GetListPaged<User>(2, 2, null, nameof(User.Age), new string[] { nameof(User.Name), nameof(User.ScheduledDayOff) }).ToArray();
+
+            _connection.Execute("Delete from Users");
+
+            Assert.AreEqual(2, users.Count());
+            Assert.AreEqual(42, users[0].Age); // verify if the first item returnes is the thrid item in database
+            Assert.IsNull(users[0].Name);
+            Assert.IsNull(users[0].ScheduledDayOff);
+            Assert.IsNull(users[1].Name);
+            Assert.IsNull(users[1].ScheduledDayOff);
+        }
+
+        [TestMethod]
+        public void TestPropertiesToBeIgnoredInGetPagedList()
+        {
+            var userId1 = _connection.Insert(new User { Name = "TestPropertiesToBeIgnoredInGetListPagedAsync1", Age = 40, CreatedDate = new DateTime(2017, 7, 28), ScheduledDayOff = DayOfWeek.Friday });
+            var userId2 = _connection.Insert(new User { Name = "TestPropertiesToBeIgnoredInGetListPagedAsync2", Age = 41, CreatedDate = new DateTime(2017, 7, 28), ScheduledDayOff = DayOfWeek.Friday });
+            var userId3 = _connection.Insert(new User { Name = "TestPropertiesToBeIgnoredInGetListPagedAsync3", Age = 42, CreatedDate = new DateTime(2017, 7, 28), ScheduledDayOff = DayOfWeek.Friday });
+            var userId4 = _connection.Insert(new User { Name = "TestPropertiesToBeIgnoredInGetListPagedAsync4", Age = 43, CreatedDate = new DateTime(2017, 7, 28), ScheduledDayOff = DayOfWeek.Friday });
+
+            var users = _connection.GetListPagedAsync<User>(2, 2, null, nameof(User.Age), new string[] { nameof(User.Name), nameof(User.ScheduledDayOff) }).Result.ToArray();
+
+            _connection.Execute("Delete from Users");
+
+            Assert.AreEqual(2, users.Count());
+            Assert.AreEqual(42, users[0].Age); // verify if the first item returnes is the thrid item in database
+            Assert.IsNull(users[0].Name);
+            Assert.IsNull(users[0].ScheduledDayOff);
+            Assert.IsNull(users[1].Name);
+            Assert.IsNull(users[1].ScheduledDayOff);
+        }
+
+
         //ignore attribute tests
         //i cheated here and stuffed all of these in one test
         //didn't implement in postgres or mysql tests yet
