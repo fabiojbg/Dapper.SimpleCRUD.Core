@@ -11,11 +11,11 @@ See usage instructions in **Eric Coffman's** original project in https://github.
 
 This version has also the following changes and improvements:
 
-##### 1) Tests were migrated to Unit Tests (only SQL Server for now)
+#### 1) Tests were migrated to Unit Tests (only SQL Server for now)
 
-##### 2) Possibility to use strings as primary keys
+#### 2) Possibility to use strings as primary keys
 
-##### 3) Possibility to not retrieve certain fields on the Get functions
+#### 3) Possibility to not retrieve certain fields on the Get functions
 The following functions have a new overload able to receive the **'string[] propertiesToBeIgnored'** parameter to be able to define whick fields you don't want to retrieve:
 - Get&lt;Type&gt;(..., string[] propertiesToBeIgnored, ...)
 - GetList&lt;Type&gt;(..., string[] propertiesToBeIgnored, ...)
@@ -24,7 +24,7 @@ The following functions have a new overload able to receive the **'string[] prop
 By using this parameter you can specify which properties you don't want to be retrieved from the database.
 This is usefull to avoid the read of large and sensitive fields.
 
-##### 4) New Update functions to update only non-null fields of an object
+#### 4) New Update functions to update only non-null fields of an object
 The following functions were added to allow the update of non-nulled fields of an object.
 
 ```csharp
@@ -49,7 +49,7 @@ This is useful when we only want to update certain properties of the object with
 This is more performant and also more thread safe as you only need one operation to update the object. 
 >**But be aware with non-nullable properties because these will always be updated.**
 
-##### 5) Added function to help in manipulating entries on Many-To-Many tables
+#### 5) Added function to help in manipulating entries on Many-To-Many tables
 
 ```csharp
 public static void UpdateManyToManyRelations<ManyToManyTable>(this IDbConnection connection,
