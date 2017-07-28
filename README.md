@@ -5,11 +5,11 @@ Simple CRUD helpers for Dapper based on .NET Standard 1.3
 
 <img  align="right" src="https://raw.githubusercontent.com/ericdc1/Dapper.SimpleCRUD/master/images/SimpleCRUD-200x200.png" alt="SimpleCRUD">
 
-Dapper.SimpleCRUD.Core is a porting for .NET Standard 1.3 from the excelent extension created by Eric Coffman (https://github.com/ericdc1/Dapper.SimpleCRUD).
+Dapper.SimpleCRUD.Core is a porting for the .NET Standard 1.3  of the excelent extension for Dapper created by Eric Coffman.
 
 See usage instructions in **Eric Coffman's** original project in https://github.com/ericdc1/Dapper.SimpleCRUD.
 
-This version has also the following changes and extensions:
+This version has also the following changes and improvements:
 
 1) Tests were migrated to Unit Tests for SQL Server Tests and SQLite Tests(Partially)
 
@@ -21,7 +21,7 @@ This version has also the following changes and extensions:
 - GetListPaged&lt;Type&gt;(..., string[] propertiesToBeIgnored, ...)
 
 By using this parameter you can specify which properties you don't want to be retrieved from the database.
-This is usefull to avoid the read of large or sensitive fields.
+This is usefull to avoid the read of large and sensitive fields.
 
 4) The following functions were also added and with them you can only update the non-null fields of an object.
 
